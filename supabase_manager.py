@@ -211,7 +211,7 @@ def get_balance(ref_date_str):
     while d <= week_end:
         if d <= ref:
             w_actual += day_actual(d)
-        w_quota += get_quota(d, holidays)
+            w_quota += get_quota(d, holidays)
         d += timedelta(days=1)
 
     month_start = ref.replace(day=1)

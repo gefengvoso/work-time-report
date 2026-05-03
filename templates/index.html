@@ -559,7 +559,8 @@ function populateProjectSelect(id) {
 }
 
 async function loadBalance() {
-  const data = await fetch(`/api/balance?date=${todayISO()}`).then(r => r.json());
+  const date = document.getElementById('f-date').value || todayISO();
+  const data = await fetch(`/api/balance?date=${date}`).then(r => r.json());
   setBalanceCard('card-monthly', 'bal-monthly', 'bal-monthly-sub', data.monthly);
   setBalanceCard('card-weekly',  'bal-weekly',  'bal-weekly-sub',  data.weekly);
   setBalanceCard('card-daily',   'bal-daily',   'bal-daily-sub',   data.daily);
