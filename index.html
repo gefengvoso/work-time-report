@@ -545,17 +545,17 @@ function populateProjectSelect(id) {
 }
 
 async function loadBalance() {
-  const today = todayISO();
-  const todayD = new Date(today + 'T00:00:00');
-  const monthStart = today.slice(0,7) + '-01';
-  const dow = todayD.getDay();
-  const wStartD = new Date(todayD); wStartD.setDate(todayD.getDate() - dow);
+  const ref = document.getElementById('f-date').value || todayISO();
+  const refD = new Date(ref + 'T00:00:00');
+  const monthStart = ref.slice(0,7) + '-01';
+  const dow = refD.getDay();
+  const wStartD = new Date(refD); wStartD.setDate(refD.getDate() - dow);
   const wStart = wStartD.toISOString().slice(0,10);
   const rangeStart = monthStart < wStart ? monthStart : wStart;
   const addD = (d,n) => { const r=new Date(d); r.setDate(r.getDate()+n); return r; };
-  const ds = d => d.toISOString().slice(0,10);
+  const ds = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const [{ data: rpts }, { data: hols }] = await Promise.all([
-    sb.from('time_reports').select('date,duration_hours').gte('date', rangeStart).lte('date', today),
+    sb.from('time_reports').select('date,duration_hours').gte('date', rangeStart).lte('date', ref),
     sb.from('holidays').select('date,quota_hours'),
   ]);
   const byDate = {};
@@ -564,11 +564,11 @@ async function loadBalance() {
   function getQ(d) { const wd=d.getDay(); if(wd===5||wd===6) return 0; const h=holidays.find(x=>x.date===ds(d)); return h?Number(h.quota_hours):9; }
   function dayA(d) { return byDate[ds(d)]||0; }
   const round2 = v => Math.round(v*100)/100;
-  const dA=dayA(todayD), dQ=getQ(todayD);
+  const dA=dayA(refD), dQ=getQ(refD);
   const wEnd=addD(wStartD,4); let wA=0,wQ=0;
-  for (let d=new Date(wStartD); d<=wEnd; d=addD(d,1)) { if(d<=todayD) wA+=dayA(d); wQ+=getQ(d); }
+  for (let d=new Date(wStartD); d<=wEnd; d=addD(d,1)) { if(d<=refD) { wA+=dayA(d); wQ+=getQ(d); } }
   const mStartD=new Date(monthStart+'T00:00:00'); let mA=0,mQ=0;
-  for (let d=new Date(mStartD); d<=todayD; d=addD(d,1)) { mA+=dayA(d); mQ+=getQ(d); }
+  for (let d=new Date(mStartD); d<=refD; d=addD(d,1)) { mA+=dayA(d); mQ+=getQ(d); }
   setBalanceCard('card-monthly','bal-monthly','bal-monthly-sub',{actual:round2(mA),quota:mQ,balance:round2(mA-mQ)});
   setBalanceCard('card-weekly','bal-weekly','bal-weekly-sub',{actual:round2(wA),quota:wQ,balance:round2(wA-wQ)});
   setBalanceCard('card-daily','bal-daily','bal-daily-sub',{actual:round2(dA),quota:dQ,balance:round2(dA-dQ)});
