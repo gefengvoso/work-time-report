@@ -1,0 +1,1270 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>מעקב שעות עבודה</title>
+<style>
+  :root {
+    --primary: #2563eb;
+    --primary-light: #eff6ff;
+    --green: #16a34a;
+    --red: #dc2626;
+    --red-light: #fef2f2;
+    --border: #e2e8f0;
+    --bg: #f8fafc;
+    --card: #ffffff;
+    --text: #1e293b;
+    --text-muted: #64748b;
+    --shadow: 0 1px 3px rgba(0,0,0,.1);
+    --shadow-md: 0 4px 12px rgba(0,0,0,.1);
+    --radius: 10px;
+    --radius-sm: 6px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
+
+  /* ── Nav ── */
+  .nav { background: var(--card); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 20px; gap: 4px; position: sticky; top: 0; z-index: 100; box-shadow: var(--shadow); }
+  .nav-logo { font-weight: 700; font-size: 16px; color: var(--primary); padding: 14px 12px 14px 20px; }
+  .nav-tab { padding: 16px 18px; cursor: pointer; color: var(--text-muted); font-weight: 500; border-bottom: 3px solid transparent; transition: all .15s; white-space: nowrap; }
+  .nav-tab:hover { color: var(--primary); background: var(--primary-light); }
+  .nav-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+  /* ── Layout ── */
+  .screen { display: none; padding: 24px 20px; max-width: 1100px; margin: 0 auto; }
+  .screen.active { display: block; }
+
+  /* ── Balance Cards ── */
+  .balance-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 22px; }
+  .balance-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow); }
+  .balance-card .label { font-size: 12px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
+  .balance-card .value { font-size: 28px; font-weight: 700; line-height: 1; }
+  .balance-card .sub { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
+  .balance-card.positive .value { color: var(--green); }
+  .balance-card.negative .value { color: var(--red); }
+  .balance-card.neutral .value { color: var(--text-muted); }
+
+  /* ── Cards ── */
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); margin-bottom: 18px; }
+  .card-title { font-size: 15px; font-weight: 600; margin-bottom: 16px; color: var(--text); }
+
+  /* ── Form ── */
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+  .form-group label { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+  .form-group input, .form-group select {
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: 9px 11px; font-size: 14px; font-family: inherit;
+    transition: border-color .15s; background: var(--card); color: var(--text); width: 100%;
+  }
+  .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
+
+  /* ── Time Tiles ── */
+  .time-tiles { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+  .time-tile {
+    border: 1.5px solid var(--border); border-radius: var(--radius);
+    padding: 14px 16px; cursor: pointer; transition: all .15s;
+    background: var(--card); text-align: center; position: relative; user-select: none;
+  }
+  .time-tile:hover { border-color: var(--primary); background: var(--primary-light); }
+  .time-tile.tile-active { border-color: var(--primary); background: var(--primary-light); }
+  .tile-label { font-size: 11px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .4px; }
+  .tile-value { font-size: 22px; font-weight: 700; color: var(--text); letter-spacing: 1px; font-variant-numeric: tabular-nums; }
+  .tile-value.empty-val { color: #cbd5e1; font-weight: 400; font-size: 18px; }
+  .tile-hidden-date { position: absolute; inset: 0; opacity: 0; width: 100%; cursor: pointer; }
+
+  /* ── Status Buttons ── */
+  .status-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
+  .status-btn { padding: 7px 16px; border: 1.5px solid var(--border); border-radius: 20px; cursor: pointer; font-size: 13px; font-family: inherit; background: var(--card); color: var(--text-muted); font-weight: 500; transition: all .15s; }
+  .status-btn:hover { border-color: var(--primary); color: var(--primary); }
+  .status-btn.active-normal { border-color: var(--primary); background: var(--primary-light); color: var(--primary); }
+  .status-btn.active-vacation { border-color: #d97706; background: #fffbeb; color: #d97706; }
+  .status-btn.active-sick { border-color: #9333ea; background: #faf5ff; color: #9333ea; }
+
+  /* ── Buttons ── */
+  .btn { padding: 9px 20px; border: none; border-radius: var(--radius-sm); cursor: pointer; font-size: 14px; font-family: inherit; font-weight: 600; transition: all .15s; }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover { background: #1d4ed8; }
+  .btn-secondary { background: var(--bg); border: 1px solid var(--border); color: var(--text); }
+  .btn-secondary:hover { background: var(--border); }
+  .btn-danger { background: var(--red-light); color: var(--red); border: 1px solid #fecaca; }
+  .btn-danger:hover { background: #fee2e2; }
+  .btn-sm { padding: 5px 12px; font-size: 12px; }
+  .btn-icon { padding: 5px 8px; font-size: 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--card); cursor: pointer; transition: all .15s; }
+  .btn-icon:hover { background: var(--bg); }
+
+  /* ── Table ── */
+  .table-wrap { overflow-x: auto; border-radius: var(--radius-sm); border: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th { background: var(--bg); padding: 10px 14px; text-align: right; font-weight: 600; font-size: 12px; color: var(--text-muted); border-bottom: 1px solid var(--border); white-space: nowrap; }
+  tbody td { padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: var(--bg); }
+  .td-actions { display: flex; gap: 6px; }
+
+  /* ── Reports screen ── */
+  .filter-bar { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 18px; }
+  .filter-bar .form-group { min-width: 140px; }
+  .report-table-wrap { overflow-x: auto; border-radius: var(--radius-sm); border: 1px solid var(--border); }
+  .report-table { border-collapse: collapse; font-size: 12px; white-space: nowrap; }
+  .report-table th, .report-table td { padding: 8px 12px; border: 1px solid var(--border); text-align: center; }
+  .report-table thead th { background: var(--bg); font-weight: 600; color: var(--text-muted); }
+  .report-table .project-col { text-align: right; min-width: 160px; position: sticky; right: 0; background: var(--card); z-index: 1; }
+  .report-table thead .project-col { background: var(--bg); }
+  .report-table .range-total-col { font-weight: 700; background: #f1f5f9; min-width: 70px; position: sticky; right: 160px; z-index: 1; }
+  .report-table thead .range-total-col { background: #e2e8f0; }
+  .report-table .total-col { font-weight: 700; background: #f1f5f9; }
+  .report-table .quota-row td { background: #f8fafc; font-weight: 600; color: var(--text-muted); font-size: 11px; }
+  .report-table .diff-row td { font-weight: 700; }
+  .report-table .diff-row .pos { color: var(--green); }
+  .report-table .diff-row .neg { color: var(--red); }
+  .rpt-date-hdr { cursor: pointer; }
+  .rpt-date-hdr:hover { background: var(--primary-light) !important; color: var(--primary) !important; }
+  .rpt-cell-link { cursor: pointer; }
+  .rpt-cell-link:hover { filter: brightness(0.92); }
+  .report-table .weekend-col { background: #fafafa !important; color: #cbd5e1 !important; }
+  .report-table .holiday-col { background: #fff7ed !important; }
+  .report-table .holiday-col th, .report-table .holiday-col { color: #c2410c; }
+  .report-table .eve-col { background: #fefce8 !important; }
+  .report-table .eve-col th, .report-table .eve-col { color: #a16207; }
+  .col-holiday { background: #fff7ed; color: #c2410c; }
+  .col-eve { background: #fefce8; color: #a16207; }
+  .col-weekend { background: #fafafa; color: #cbd5e1; }
+  .col-sick { background: #eff6ff; color: #1d4ed8; }
+  .col-vacation { background: #f0fdf4; color: #15803d; }
+  .col-today { box-shadow: inset 2px 0 0 var(--primary), inset -2px 0 0 var(--primary); }
+  .report-table thead .col-today { box-shadow: inset 2px 0 0 var(--primary), inset -2px 0 0 var(--primary), inset 0 3px 0 var(--primary); }
+  .report-table tbody tr:last-child .col-today { box-shadow: inset 2px 0 0 var(--primary), inset -2px 0 0 var(--primary), inset 0 -2px 0 var(--primary); }
+
+  /* ── Projects screen ── */
+  .projects-list { display: flex; flex-direction: column; gap: 8px; }
+  .project-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+  .project-item .project-name { flex: 1; font-size: 14px; }
+  .project-item.fav { border-right: 3px solid #f59e0b; }
+  .star { cursor: pointer; font-size: 16px; color: #cbd5e1; transition: color .15s; }
+  .star.starred { color: #f59e0b; }
+  .inactive-badge { font-size: 11px; color: var(--text-muted); background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 1px 8px; }
+  .empty { text-align: center; padding: 36px; color: var(--text-muted); font-size: 14px; }
+
+  /* ── Modal ── */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 1000; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--card); border-radius: var(--radius); padding: 24px; width: 100%; max-width: 420px; box-shadow: var(--shadow-md); }
+  .modal-title { font-size: 16px; font-weight: 700; margin-bottom: 18px; }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+  /* ── Clock Picker ── */
+  .clock-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 2000; align-items: center; justify-content: center; }
+  .clock-overlay.open { display: flex; }
+  .clock-modal { background: var(--card); border-radius: 20px; padding: 24px 20px 16px; width: 300px; box-shadow: var(--shadow-md); text-align: center; }
+  .clock-display { display: flex; align-items: center; justify-content: center; gap: 4px; margin-bottom: 16px; font-size: 52px; font-weight: 300; direction: ltr; }
+  .cp-seg { padding: 4px 10px; border-radius: 8px; cursor: pointer; transition: background .15s; color: #94a3b8; }
+  .cp-seg.cp-active { background: var(--primary-light); color: var(--primary); font-weight: 600; }
+  .cp-colon { color: #94a3b8; font-size: 44px; margin: 0 -4px; }
+  #cp-canvas { display: block; margin: 0 auto 8px; cursor: pointer; }
+  .clock-actions { display: flex; justify-content: space-between; margin-top: 8px; }
+  .cp-hint { font-size: 11px; color: var(--text-muted); margin-bottom: 8px; }
+</style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav class="nav">
+  <div class="nav-logo">⏱ שעות עבודה</div>
+  <div class="nav-tab active" onclick="showScreen('main', this)">דיווח</div>
+  <div class="nav-tab" onclick="showScreen('reports', this)">דוחות</div>
+  <div class="nav-tab" onclick="showScreen('projects', this)">פרויקטים</div>
+  <div class="nav-tab" onclick="showScreen('holidays', this)">חגים</div>
+</nav>
+
+<!-- ═══════════════ MAIN SCREEN ═══════════════ -->
+<div id="screen-main" class="screen active">
+
+  <div class="balance-grid">
+    <div class="balance-card neutral" id="card-monthly">
+      <div class="label">יתרה חודשית</div>
+      <div class="value" id="bal-monthly">—</div>
+      <div class="sub" id="bal-monthly-sub"></div>
+    </div>
+    <div class="balance-card neutral" id="card-weekly">
+      <div class="label">יתרה שבועית</div>
+      <div class="value" id="bal-weekly">—</div>
+      <div class="sub" id="bal-weekly-sub"></div>
+    </div>
+    <div class="balance-card neutral" id="card-daily">
+      <div class="label">יתרה יומית</div>
+      <div class="value" id="bal-daily">—</div>
+      <div class="sub" id="bal-daily-sub"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">➕ דיווח שעות</div>
+
+    <!-- Project row -->
+    <div class="form-group" style="margin-bottom:14px">
+      <label>פרויקט</label>
+      <select id="f-project"><option value="">-- בחר פרויקט --</option></select>
+    </div>
+
+    <!-- Time tiles: 2x2 grid -->
+    <div class="time-tiles" style="margin-bottom:14px">
+      <div class="time-tile" id="tile-date" onclick="document.getElementById('f-date').showPicker?.()">
+        <div class="tile-label">תאריך התחלה</div>
+        <div class="tile-value" id="tv-date">—</div>
+        <input type="date" id="f-date" class="tile-hidden-date" onchange="onDateChange()">
+      </div>
+      <div class="time-tile" id="tile-start" onclick="CP.open('f-start', 'tile-start')">
+        <div class="tile-label">שעת התחלה</div>
+        <div class="tile-value" id="tv-start">—</div>
+        <input type="time" id="f-start" style="display:none">
+      </div>
+      <div class="time-tile" id="tile-end-date" onclick="document.getElementById('f-end-date').showPicker?.()">
+        <div class="tile-label">תאריך סיום</div>
+        <div class="tile-value" id="tv-end-date">—</div>
+        <input type="date" id="f-end-date" class="tile-hidden-date" onchange="onEndDateChange()">
+      </div>
+      <div class="time-tile" id="tile-end" onclick="CP.open('f-end', 'tile-end')">
+        <div class="tile-label">שעת סיום <span style="font-weight:400;color:#94a3b8;font-size:10px">(אופ׳)</span></div>
+        <div class="tile-value empty-val" id="tv-end">—</div>
+        <input type="time" id="f-end" style="display:none">
+      </div>
+    </div>
+
+    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+      <div class="status-row">
+        <span style="font-size:12px;font-weight:600;color:var(--text-muted);">סוג יום:</span>
+        <button class="status-btn" id="btn-normal" onclick="setDayStatus('normal')">רגיל</button>
+        <button class="status-btn" id="btn-vacation" onclick="setDayStatus('vacation')">חופשה</button>
+        <button class="status-btn" id="btn-sick" onclick="setDayStatus('sick')">מחלה</button>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-secondary" onclick="resetForm()">נקה</button>
+        <button class="btn btn-primary" onclick="saveReport()">שמור דיווח</button>
+      </div>
+    </div>
+    <div id="form-error" style="color:var(--red);font-size:13px;margin-top:10px;display:none;"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📋 פעילות יום <span id="daily-table-date" style="color:var(--primary)"></span></div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>פרויקט</th><th>התחלה</th><th>סיום</th><th>משך</th><th></th></tr>
+        </thead>
+        <tbody id="daily-tbody">
+          <tr><td colspan="5" class="empty">אין דיווחים להיום</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div id="daily-total" style="text-align:left;padding:10px 14px;font-size:13px;font-weight:600;color:var(--text-muted);"></div>
+  </div>
+</div>
+
+<!-- ═══════════════ REPORTS SCREEN ═══════════════ -->
+<div id="screen-reports" class="screen">
+  <div class="card">
+    <div class="card-title">📊 דוח שעות</div>
+    <div class="filter-bar">
+      <div class="form-group">
+        <label>טווח</label>
+        <select id="r-range" onchange="onRangeSelect()">
+          <option value="">— בחר טווח —</option>
+          <optgroup label="יום">
+            <option value="today">יום נוכחי</option>
+            <option value="yesterday">יום קודם</option>
+          </optgroup>
+          <optgroup label="שבוע">
+            <option value="thisweek">שבוע נוכחי</option>
+            <option value="lastweek">שבוע קודם</option>
+          </optgroup>
+          <optgroup label="חודש">
+            <option value="thismonth" selected>חודש נוכחי</option>
+            <option value="lastmonth">חודש קודם</option>
+          </optgroup>
+          <option value="custom">— טווח מותאם —</option>
+        </select>
+      </div>
+      <div class="form-group" id="r-custom-start-wrap" style="display:none">
+        <label>מ-תאריך</label>
+        <input type="date" id="r-start">
+      </div>
+      <div class="form-group" id="r-custom-end-wrap" style="display:none">
+        <label>עד-תאריך</label>
+        <input type="date" id="r-end">
+      </div>
+      <div class="form-group">
+        <label>הצג</label>
+        <select id="r-projects">
+          <option value="active">פרויקטים עם שעות</option>
+          <option value="all">כל הפרויקטים</option>
+          <option value="sick">ימי מחלה בלבד</option>
+          <option value="vacation">ימי חופש בלבד</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" onclick="loadReports()">הצג</button>
+    </div>
+    <div id="reports-output"><div class="empty">בחר טווח תאריכים והקש "הצג"</div></div>
+  </div>
+</div>
+
+<!-- ═══════════════ PROJECTS SCREEN ═══════════════ -->
+<div id="screen-projects" class="screen">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <div class="card-title" style="margin-bottom:0">⭐ ניהול פרויקטים</div>
+      <button class="btn btn-primary btn-sm" onclick="openProjectModal()">+ הוסף פרויקט</button>
+    </div>
+    <div class="projects-list" id="projects-list"><div class="empty">טוען...</div></div>
+  </div>
+</div>
+
+<!-- ═══════════════ HOLIDAYS SCREEN ═══════════════ -->
+<div id="screen-holidays" class="screen">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <div class="card-title" style="margin-bottom:0">🗓 ניהול חגים</div>
+      <button class="btn btn-primary btn-sm" onclick="openHolidayModal()">+ הוסף</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>תאריך</th><th>שם</th><th>תקן שעות</th><th></th></tr></thead>
+        <tbody id="holidays-tbody"><tr><td colspan="4" class="empty">טוען...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ CLOCK PICKER ═══════════════ -->
+<div class="clock-overlay" id="clock-overlay">
+  <div class="clock-modal">
+    <div class="clock-display">
+      <span class="cp-seg cp-active" id="cp-h" onclick="CP.setMode('hours')">09</span>
+      <span class="cp-colon">:</span>
+      <span class="cp-seg" id="cp-m" onclick="CP.setMode('minutes')">00</span>
+    </div>
+    <div class="cp-hint" id="cp-hint">בחר שעה</div>
+    <canvas id="cp-canvas" width="260" height="260"></canvas>
+    <div class="clock-actions">
+      <button class="btn btn-secondary btn-sm" onclick="CP.cancel()">ביטול</button>
+      <button class="btn btn-primary btn-sm" onclick="CP.confirm()">אישור</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ MODALS ═══════════════ -->
+<div class="modal-overlay" id="modal-report">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-title">עריכת דיווח</div>
+    <input type="hidden" id="m-report-id">
+    <div class="form-group" style="margin-bottom:14px;"><label>פרויקט</label><select id="m-project"></select></div>
+    <div class="time-tiles" style="margin-bottom:4px;">
+      <div class="time-tile" id="m-tile-date" onclick="document.getElementById('m-date').showPicker?.()">
+        <div class="tile-label">תאריך התחלה</div>
+        <div class="tile-value" id="m-tv-date">—</div>
+        <input type="date" id="m-date" class="tile-hidden-date" onchange="onMDateChange()">
+      </div>
+      <div class="time-tile" id="m-tile-start" onclick="CP.open('m-start','m-tile-start')">
+        <div class="tile-label">שעת התחלה</div>
+        <div class="tile-value" id="m-tv-start">—</div>
+        <input type="time" id="m-start" style="display:none">
+      </div>
+      <div class="time-tile" id="m-tile-end-date" onclick="document.getElementById('m-end-date').showPicker?.()">
+        <div class="tile-label">תאריך סיום</div>
+        <div class="tile-value" id="m-tv-end-date">—</div>
+        <input type="date" id="m-end-date" class="tile-hidden-date" onchange="onMEndDateChange()">
+      </div>
+      <div class="time-tile" id="m-tile-end" onclick="CP.open('m-end','m-tile-end')">
+        <div class="tile-label">שעת סיום</div>
+        <div class="tile-value" id="m-tv-end">—</div>
+        <input type="time" id="m-end" style="display:none">
+      </div>
+    </div>
+    <div id="modal-error" style="color:var(--red);font-size:13px;margin-top:10px;display:none;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-report')">ביטול</button>
+      <button class="btn btn-primary" onclick="saveEditReport()">שמור</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-day-detail">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-title" id="day-detail-title"></div>
+    <div id="day-detail-body"></div>
+    <div class="modal-actions" style="margin-top:16px">
+      <button class="btn btn-secondary" onclick="closeModal('modal-day-detail')">סגור</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-project">
+  <div class="modal">
+    <div class="modal-title" id="modal-project-title">הוסף פרויקט</div>
+    <input type="hidden" id="mp-id">
+    <div class="form-group" style="margin-bottom:12px;"><label>שם פרויקט</label><input type="text" id="mp-name" placeholder="שם הפרויקט"></div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+      <input type="checkbox" id="mp-active" checked>
+      <label for="mp-active" style="font-size:13px;">פרויקט פעיל</label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-project')">ביטול</button>
+      <button class="btn btn-primary" onclick="saveProject()">שמור</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-holiday">
+  <div class="modal">
+    <div class="modal-title" id="modal-holiday-title">הוסף חג</div>
+    <input type="hidden" id="mh-id">
+    <div class="form-grid" style="gap:12px;">
+      <div class="form-group"><label>תאריך</label><input type="date" id="mh-date"></div>
+      <div class="form-group"><label>תקן שעות</label><input type="number" id="mh-quota" min="0" max="9" step="0.5" value="0"></div>
+      <div class="form-group" style="grid-column:1/-1;"><label>שם החג</label><input type="text" id="mh-name" placeholder="שם החג"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-holiday')">ביטול</button>
+      <button class="btn btn-primary" onclick="saveHoliday()">שמור</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Globals ────────────────────────────────────────────────────────────────
+let allProjects = [];
+let currentDayStatus = 'normal';
+let dailyReports = [];
+
+function todayISO() { return new Date().toISOString().slice(0, 10); }
+
+function roundTime(d) {
+  const copy = new Date(d), m = copy.getMinutes();
+  if (m <= 15) copy.setMinutes(0);
+  else if (m <= 45) copy.setMinutes(30);
+  else { copy.setMinutes(0); copy.setHours(copy.getHours() + 1); }
+  copy.setSeconds(0);
+  return `${String(copy.getHours()).padStart(2,'0')}:${String(copy.getMinutes()).padStart(2,'0')}`;
+}
+
+function formatDuration(hours) {
+  if (hours == null) return '—';
+  const h = Math.floor(Math.abs(hours)), m = Math.round((Math.abs(hours) - h) * 60);
+  return `${hours < 0 ? '-' : ''}${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+}
+
+function formatDate(iso) {
+  if (!iso) return '';
+  const [, mo, d] = iso.split('-');
+  return `${d}/${mo}`;
+}
+
+function setTileDate(iso) {
+  document.getElementById('tv-date').textContent = formatDate(iso);
+  document.getElementById('tv-date').classList.remove('empty-val');
+}
+
+function setTileEndDate(iso) {
+  const today = document.getElementById('f-date').value;
+  const el = document.getElementById('tv-end-date');
+  el.textContent = formatDate(iso);
+  el.classList.remove('empty-val');
+  // highlight if different from start date
+  document.getElementById('tile-end-date').style.borderColor = (iso && iso !== today) ? 'var(--primary)' : '';
+}
+
+function setTileTime(inputId, displayId) {
+  const val = document.getElementById(inputId).value;
+  const el = document.getElementById(displayId);
+  if (val) { el.textContent = val; el.classList.remove('empty-val'); }
+  else { el.textContent = '—'; el.classList.add('empty-val'); }
+}
+
+// ── Navigation ─────────────────────────────────────────────────────────────
+function showScreen(name, tab) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  tab.classList.add('active');
+  if (name === 'main') loadMain();
+  if (name === 'reports') { if (!allProjects.length) loadProjects(); initReportDates(); loadReports(); }
+  if (name === 'projects') loadProjectsScreen();
+  if (name === 'holidays') loadHolidays();
+}
+
+// ── Main Screen ────────────────────────────────────────────────────────────
+async function loadMain() {
+  const today = todayISO();
+  document.getElementById('f-date').value = today;
+  setTileDate(today);
+  document.getElementById('f-end-date').value = today;
+  setTileEndDate(today);
+  const rounded = roundTime(new Date());
+  document.getElementById('f-start').value = rounded;
+  setTileTime('f-start', 'tv-start');
+  document.getElementById('f-end').value = '';
+  setTileTime('f-end', 'tv-end');
+  await loadProjects();
+  await Promise.all([loadBalance(), loadDailyTable(today), loadDayStatus(today)]);
+}
+
+function onDateChange() {
+  const iso = document.getElementById('f-date').value;
+  if (!iso) return;
+  setTileDate(iso);
+  // sync end-date to start-date if not already manually changed past it
+  const endDate = document.getElementById('f-end-date').value;
+  if (!endDate || endDate < iso) {
+    document.getElementById('f-end-date').value = iso;
+    setTileEndDate(iso);
+  }
+  loadDailyTable(iso);
+  loadDayStatus(iso);
+  loadBalance();
+}
+
+function onEndDateChange() {
+  const iso = document.getElementById('f-end-date').value;
+  if (iso) setTileEndDate(iso);
+}
+
+async function loadProjects() {
+  allProjects = await fetch('/api/projects').then(r => r.json());
+  populateProjectSelect('f-project');
+  populateProjectSelect('m-project');
+}
+
+function populateProjectSelect(id) {
+  const sel = document.getElementById(id), cur = sel.value;
+  sel.innerHTML = '<option value="">-- בחר פרויקט --</option>';
+  const favs = allProjects.filter(p => p.favorite && p.active);
+  const rest = allProjects.filter(p => !p.favorite && p.active);
+  if (favs.length) {
+    const g = document.createElement('optgroup'); g.label = '⭐ מועדפים';
+    favs.forEach(p => g.appendChild(new Option(p.name, p.id))); sel.appendChild(g);
+  }
+  if (rest.length) {
+    const g = document.createElement('optgroup'); g.label = 'פרויקטים';
+    rest.forEach(p => g.appendChild(new Option(p.name, p.id))); sel.appendChild(g);
+  }
+  sel.value = cur;
+}
+
+async function loadBalance() {
+  const data = await fetch(`/api/balance?date=${todayISO()}`).then(r => r.json());
+  setBalanceCard('card-monthly', 'bal-monthly', 'bal-monthly-sub', data.monthly);
+  setBalanceCard('card-weekly',  'bal-weekly',  'bal-weekly-sub',  data.weekly);
+  setBalanceCard('card-daily',   'bal-daily',   'bal-daily-sub',   data.daily);
+}
+
+function setBalanceCard(cardId, valId, subId, d) {
+  const b = d.balance;
+  document.getElementById(valId).textContent = (b >= 0 ? '+' : '-') + formatDuration(Math.abs(b));
+  document.getElementById(subId).textContent = `בפועל: ${formatDuration(d.actual)} | תקן: ${formatDuration(d.quota)}`;
+  document.getElementById(cardId).className = 'balance-card ' + (b > 0 ? 'positive' : b < 0 ? 'negative' : 'neutral');
+}
+
+async function loadDailyTable(dateStr) {
+  const reports = await fetch(`/api/reports?date=${dateStr}`).then(r => r.json());
+  dailyReports = reports;
+  document.getElementById('daily-table-date').textContent = formatDate(dateStr);
+  const tbody = document.getElementById('daily-tbody');
+  if (!reports.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="empty">אין דיווחים ליום זה</td></tr>';
+    document.getElementById('daily-total').textContent = '';
+    return;
+  }
+  let total = 0;
+  tbody.innerHTML = reports.map(r => {
+    total += r.duration_hours || 0;
+    const name = allProjects.find(p => p.id == r.project)?.name || r.project || '<em style="color:#94a3b8">ללא פרויקט</em>';
+    const dur = r.start_time && r.end_time ? `<strong>${formatDuration(r.duration_hours)}</strong>` : '—';
+    const endLabel = r.end_time ? (r.end_date && r.end_date !== r.date ? `${r.end_time} <small style="color:var(--primary)">${formatDate(r.end_date)}</small>` : r.end_time) : '—';
+    return `<tr>
+      <td>${name}</td><td>${r.start_time||'—'}</td><td>${endLabel}</td><td>${dur}</td>
+      <td><div class="td-actions">
+        <button class="btn-icon" onclick="openEditReport(${r.id})">✏️</button>
+        <button class="btn-icon" onclick="deleteReport(${r.id})">🗑️</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+  document.getElementById('daily-total').textContent = `סה"כ: ${formatDuration(total)}`;
+}
+
+async function loadDayStatus(dateStr) {
+  const data = await fetch(`/api/day-status?date=${dateStr}`).then(r => r.json());
+  currentDayStatus = data.status || 'normal';
+  updateStatusButtons();
+}
+
+function updateStatusButtons() {
+  document.getElementById('btn-normal').className = 'status-btn' + (currentDayStatus==='normal' ? ' active-normal' : '');
+  document.getElementById('btn-vacation').className = 'status-btn' + (currentDayStatus==='vacation' ? ' active-vacation' : '');
+  document.getElementById('btn-sick').className = 'status-btn' + (currentDayStatus==='sick' ? ' active-sick' : '');
+}
+
+async function setDayStatus(status) {
+  const dateStr = document.getElementById('f-date').value;
+  await fetch('/api/day-status', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({date: dateStr, status}) });
+  currentDayStatus = status;
+  updateStatusButtons();
+  loadBalance();
+}
+
+async function saveReport() {
+  const dateStr = document.getElementById('f-date').value;
+  const endDateStr = document.getElementById('f-end-date').value || dateStr;
+  const project = document.getElementById('f-project').value;
+  const start = document.getElementById('f-start').value;
+  const end = document.getElementById('f-end').value;
+  const errEl = document.getElementById('form-error');
+
+  if (start && end) {
+    const startDT = dateStr + 'T' + start, endDT = endDateStr + 'T' + end;
+    if (startDT >= endDT) { errEl.textContent = 'שעת ההתחלה חייבת להיות לפני שעת הסיום'; errEl.style.display='block'; return; }
+  }
+  errEl.style.display = 'none';
+
+  const endDate = endDateStr !== dateStr ? endDateStr : null;
+  await fetch('/api/reports', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({date:dateStr, project, start_time:start, end_time:end, end_date:endDate}) });
+
+  // next start = previous end time, advance end-date to end-date
+  const nextStart = end || roundTime(new Date());
+  const nextDate = endDateStr || dateStr;
+  document.getElementById('f-date').value = nextDate;
+  setTileDate(nextDate);
+  document.getElementById('f-end-date').value = nextDate;
+  setTileEndDate(nextDate);
+  document.getElementById('f-start').value = nextStart;
+  setTileTime('f-start', 'tv-start');
+  document.getElementById('f-end').value = '';
+  setTileTime('f-end', 'tv-end');
+  document.getElementById('f-project').value = '';
+  await loadDailyTable(document.getElementById('f-date').value);
+  await loadBalance();
+}
+
+function resetForm() {
+  const today = todayISO();
+  const rounded = roundTime(new Date());
+  document.getElementById('f-project').value = '';
+  document.getElementById('f-date').value = today; setTileDate(today);
+  document.getElementById('f-end-date').value = today; setTileEndDate(today);
+  document.getElementById('f-start').value = rounded; setTileTime('f-start', 'tv-start');
+  document.getElementById('f-end').value = ''; setTileTime('f-end', 'tv-end');
+  document.getElementById('form-error').style.display = 'none';
+}
+
+async function deleteReport(id) {
+  if (!confirm('למחוק דיווח זה?')) return;
+  await fetch(`/api/reports/${id}`, {method:'DELETE'});
+  const dateStr = document.getElementById('f-date').value;
+  await loadDailyTable(dateStr);
+  await loadBalance();
+}
+
+function onMDateChange() {
+  const iso = document.getElementById('m-date').value;
+  if (!iso) return;
+  document.getElementById('m-tv-date').textContent = formatDate(iso);
+  document.getElementById('m-tv-date').classList.remove('empty-val');
+  const endDate = document.getElementById('m-end-date').value;
+  if (!endDate || endDate < iso) {
+    document.getElementById('m-end-date').value = iso;
+    onMEndDateChange();
+  }
+}
+
+function onMEndDateChange() {
+  const iso = document.getElementById('m-end-date').value;
+  const el = document.getElementById('m-tv-end-date');
+  el.textContent = iso ? formatDate(iso) : '—';
+  iso ? el.classList.remove('empty-val') : el.classList.add('empty-val');
+}
+
+async function openEditReport(id) {
+  const r = dailyReports.find(x => x.id === id);
+  if (!r) return;
+  document.getElementById('m-report-id').value = id;
+
+  document.getElementById('m-date').value = r.date;
+  document.getElementById('m-tv-date').textContent = formatDate(r.date);
+  document.getElementById('m-tv-date').classList.remove('empty-val');
+
+  const endDate = r.end_date || r.date;
+  document.getElementById('m-end-date').value = endDate;
+  document.getElementById('m-tv-end-date').textContent = formatDate(endDate);
+  document.getElementById('m-tv-end-date').classList.remove('empty-val');
+
+  document.getElementById('m-start').value = r.start_time || '';
+  setTileTime('m-start', 'm-tv-start');
+  document.getElementById('m-end').value = r.end_time || '';
+  setTileTime('m-end', 'm-tv-end');
+
+  populateProjectSelect('m-project');
+  document.getElementById('m-project').value = r.project;
+  document.getElementById('modal-error').style.display = 'none';
+  openModal('modal-report');
+}
+
+async function saveEditReport() {
+  const id = parseInt(document.getElementById('m-report-id').value);
+  const dateStr = document.getElementById('m-date').value;
+  const endDateStr = document.getElementById('m-end-date').value || dateStr;
+  const project = document.getElementById('m-project').value;
+  const start = document.getElementById('m-start').value;
+  const end = document.getElementById('m-end').value;
+  const errEl = document.getElementById('modal-error');
+  if (start && end) {
+    if ((dateStr + 'T' + start) >= (endDateStr + 'T' + end)) {
+      errEl.textContent = 'שעת ההתחלה חייבת להיות לפני שעת הסיום'; errEl.style.display='block'; return;
+    }
+  }
+  const endDate = endDateStr !== dateStr ? endDateStr : null;
+  await fetch(`/api/reports/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({date:dateStr, project, start_time:start, end_time:end, end_date:endDate}) });
+  closeModal('modal-report');
+  if (document.getElementById('screen-reports').classList.contains('active')) {
+    loadReports();
+  } else {
+    document.getElementById('f-date').value = dateStr;
+    setTileDate(dateStr);
+    document.getElementById('f-end-date').value = endDateStr;
+    setTileEndDate(endDateStr);
+    await loadDailyTable(dateStr);
+    await loadBalance();
+  }
+}
+
+// ── Clock Picker ───────────────────────────────────────────────────────────
+const CP = {
+  mode: 'hours', h: 9, m: 0,
+  targetInput: null, tileId: null, dragging: false,
+
+  open(inputId, tileId) {
+    const val = document.getElementById(inputId).value;
+    if (val) { const [hh,mm] = val.split(':').map(Number); this.h = hh; this.m = mm; }
+    else { this.h = parseInt(roundTime(new Date()).split(':')[0]); this.m = parseInt(roundTime(new Date()).split(':')[1]); }
+    this.targetInput = inputId; this.tileId = tileId; this.mode = 'hours';
+    document.getElementById('clock-overlay').classList.add('open');
+    this.render();
+    const canvas = document.getElementById('cp-canvas');
+    canvas.onmousedown = e => { this.dragging = true; this.handlePointer(e); };
+    canvas.onmousemove = e => { if (this.dragging) this.handlePointer(e); };
+    canvas.onmouseup = e => { this.dragging = false; };
+    canvas.onclick = e => this.handlePointer(e);
+    canvas.ontouchstart = e => { e.preventDefault(); this.handlePointer(e.touches[0]); };
+    canvas.ontouchmove = e => { e.preventDefault(); this.handlePointer(e.touches[0]); };
+  },
+
+  cancel() { document.getElementById('clock-overlay').classList.remove('open'); },
+
+  confirm() {
+    const val = `${String(this.h).padStart(2,'0')}:${String(this.m).padStart(2,'0')}`;
+    document.getElementById(this.targetInput).value = val;
+    setTileTime(this.targetInput, this.tileId.replace('tile-', 'tv-'));
+    document.getElementById(this.tileId).classList.remove('tile-active');
+    document.getElementById('clock-overlay').classList.remove('open');
+  },
+
+  setMode(mode) { this.mode = mode; this.render(); },
+
+  render() {
+    document.getElementById('cp-h').textContent = String(this.h).padStart(2,'0');
+    document.getElementById('cp-m').textContent = String(this.m).padStart(2,'0');
+    document.getElementById('cp-h').className = 'cp-seg' + (this.mode==='hours' ? ' cp-active' : '');
+    document.getElementById('cp-m').className = 'cp-seg' + (this.mode==='minutes' ? ' cp-active' : '');
+    document.getElementById('cp-hint').textContent = this.mode==='hours' ? 'בחר שעה' : 'בחר דקות';
+    this.draw();
+  },
+
+  draw() {
+    const canvas = document.getElementById('cp-canvas');
+    const ctx = canvas.getContext('2d');
+    const W = 260, H = 260, cx = 130, cy = 130;
+    const OUTER = 95, INNER = 62, BG = 116;
+    ctx.clearRect(0, 0, W, H);
+
+    // bg circle
+    ctx.beginPath(); ctx.arc(cx, cy, BG, 0, 2*Math.PI);
+    ctx.fillStyle = '#f1f5f9'; ctx.fill();
+
+    if (this.mode === 'hours') {
+      // determine selected position
+      let selPos, selR;
+      if (this.h === 0) { selPos = 0; selR = INNER; }
+      else if (this.h <= 11) { selPos = this.h; selR = OUTER; }
+      else if (this.h === 12) { selPos = 0; selR = OUTER; }
+      else { selPos = this.h - 12; selR = INNER; }
+      const selAngle = selPos * (2*Math.PI/12) - Math.PI/2;
+      const sx = cx + selR * Math.cos(selAngle), sy = cy + selR * Math.sin(selAngle);
+
+      // hand
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(sx, sy);
+      ctx.strokeStyle = '#2563eb'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.beginPath(); ctx.arc(sx, sy, 17, 0, 2*Math.PI);
+      ctx.fillStyle = '#2563eb'; ctx.fill();
+
+      // outer ring: 12,1..11
+      for (let i = 0; i < 12; i++) {
+        const hr = i === 0 ? 12 : i;
+        const a = i * (2*Math.PI/12) - Math.PI/2;
+        const x = cx + OUTER * Math.cos(a), y = cy + OUTER * Math.sin(a);
+        const sel = this.h === hr;
+        ctx.font = `${sel ? 'bold' : 'normal'} 13px Segoe UI,Arial`;
+        ctx.fillStyle = sel ? '#fff' : '#1e293b';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(String(hr).padStart(2,'0'), x, y);
+      }
+      // inner ring: 0,13..23
+      for (let i = 0; i < 12; i++) {
+        const hr = i === 0 ? 0 : i + 12;
+        const a = i * (2*Math.PI/12) - Math.PI/2;
+        const x = cx + INNER * Math.cos(a), y = cy + INNER * Math.sin(a);
+        const sel = this.h === hr;
+        ctx.font = `${sel ? 'bold' : 'normal'} 11px Segoe UI,Arial`;
+        ctx.fillStyle = sel ? '#fff' : '#64748b';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(String(hr).padStart(2,'0'), x, y);
+      }
+    } else {
+      // minutes
+      const selAngle = this.m / 60 * (2*Math.PI) - Math.PI/2;
+      const mx = cx + OUTER * Math.cos(selAngle), my = cy + OUTER * Math.sin(selAngle);
+
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(mx, my);
+      ctx.strokeStyle = '#2563eb'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.beginPath(); ctx.arc(mx, my, 17, 0, 2*Math.PI);
+      ctx.fillStyle = '#2563eb'; ctx.fill();
+
+      // dots for every minute
+      for (let i = 0; i < 60; i++) {
+        const a = i / 60 * (2*Math.PI) - Math.PI/2;
+        if (i % 5 === 0) {
+          const x = cx + OUTER * Math.cos(a), y = cy + OUTER * Math.sin(a);
+          const sel = this.m === i;
+          ctx.font = `${sel ? 'bold' : 'normal'} 12px Segoe UI,Arial`;
+          ctx.fillStyle = sel ? '#fff' : '#1e293b';
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText(String(i).padStart(2,'0'), x, y);
+        } else {
+          const r = OUTER - 6;
+          const x = cx + r * Math.cos(a), y = cy + r * Math.sin(a);
+          ctx.beginPath(); ctx.arc(x, y, 1.5, 0, 2*Math.PI);
+          ctx.fillStyle = '#94a3b8'; ctx.fill();
+        }
+      }
+    }
+
+    // center dot
+    ctx.beginPath(); ctx.arc(cx, cy, 4, 0, 2*Math.PI);
+    ctx.fillStyle = '#2563eb'; ctx.fill();
+  },
+
+  handlePointer(e) {
+    const canvas = document.getElementById('cp-canvas');
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left - 130, y = e.clientY - rect.top - 130;
+    const dist = Math.sqrt(x*x + y*y);
+    if (dist < 20) return;
+
+    if (this.mode === 'hours') {
+      let angle = Math.atan2(y, x);
+      let pos = Math.round((angle + Math.PI/2) / (2*Math.PI/12));
+      pos = ((pos % 12) + 12) % 12;
+      const isInner = dist < (95 + 62) / 2;
+      this.h = isInner ? (pos === 0 ? 0 : pos + 12) : (pos === 0 ? 12 : pos);
+      this.render();
+      if (!this.dragging) { this.mode = 'minutes'; this.render(); }
+    } else {
+      let angle = Math.atan2(y, x);
+      let min = Math.round((angle + Math.PI/2) / (2*Math.PI) * 60);
+      min = ((min % 60) + 60) % 60;
+      min = Math.round(min / 5) * 5 % 60;
+      this.m = min;
+      this.render();
+    }
+  }
+};
+
+// ── Reports Screen ─────────────────────────────────────────────────────────
+function calcRange(range) {
+  const today = new Date();
+  const iso = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  let start, end = iso(today);
+  if (range === 'today') start = end;
+  else if (range === 'yesterday') { const y = new Date(today); y.setDate(y.getDate()-1); start = end = iso(y); }
+  else if (range === 'thisweek') {
+    // Israeli week: Sun–Sat; getDay() 0=Sun..6=Sat
+    const s = new Date(today); s.setDate(s.getDate() - today.getDay());
+    const e = new Date(s); e.setDate(e.getDate() + 6);
+    start = iso(s); end = iso(e);
+  }
+  else if (range === 'lastweek') {
+    const s = new Date(today); s.setDate(s.getDate() - today.getDay() - 7);
+    const e = new Date(s); e.setDate(e.getDate() + 6);
+    start = iso(s); end = iso(e);
+  }
+  else if (range === 'thismonth') {
+    const y = today.getFullYear(), m = today.getMonth();
+    start = `${y}-${String(m+1).padStart(2,'0')}-01`;
+    end = iso(new Date(y, m+1, 0));
+  }
+  else if (range === 'lastmonth') {
+    const lm = new Date(today.getFullYear(), today.getMonth(), 0); end = iso(lm);
+    start = `${lm.getFullYear()}-${String(lm.getMonth()+1).padStart(2,'0')}-01`;
+  }
+  return { start, end };
+}
+
+function initReportDates() {
+  const { start, end } = calcRange('thismonth');
+  document.getElementById('r-start').value = start;
+  document.getElementById('r-end').value = end;
+}
+
+function onRangeSelect() {
+  const range = document.getElementById('r-range').value;
+  const isCustom = range === 'custom';
+  document.getElementById('r-custom-start-wrap').style.display = isCustom ? '' : 'none';
+  document.getElementById('r-custom-end-wrap').style.display = isCustom ? '' : 'none';
+  if (!range || isCustom) return;
+  const { start, end } = calcRange(range);
+  document.getElementById('r-start').value = start;
+  document.getElementById('r-end').value = end;
+  loadReports();
+}
+
+async function loadReports() {
+  const start = document.getElementById('r-start').value;
+  const end = document.getElementById('r-end').value;
+  if (!start || !end) return;
+
+  const showMode = document.getElementById('r-projects').value; // active | all | sick | vacation
+
+  const [reports, holidays, projects, statuses] = await Promise.all([
+    fetch(`/api/reports/range?start=${start}&end=${end}`).then(r => r.json()),
+    fetch('/api/holidays').then(r => r.json()),
+    fetch('/api/projects').then(r => r.json()),
+    fetch(`/api/day-statuses?start=${start}&end=${end}`).then(r => r.json()),
+  ]);
+
+  const projectMap = {};
+  projects.forEach(p => { projectMap[p.id] = p.name; });
+
+  // Build full date list
+  const allDates = [];
+  const cur = new Date(start), endD = new Date(end);
+  while (cur <= endD) { allDates.push(cur.toISOString().slice(0,10)); cur.setDate(cur.getDate()+1); }
+
+  // Filter dates if showing only sick/vacation (never include weekends)
+  const dates = (showMode === 'sick' || showMode === 'vacation')
+    ? allDates.filter(d => statuses[d] === showMode && new Date(d).getDay() !== 5 && new Date(d).getDay() !== 6)
+    : allDates;
+
+  if (dates.length === 0) {
+    document.getElementById('reports-output').innerHTML = `<div class="empty">אין ימי ${showMode === 'sick' ? 'מחלה' : 'חופש'} בטווח זה</div>`;
+    return;
+  }
+
+  const holidayMap = {}, holidayTypeMap = {}, holidayNameMap = {};
+  holidays.forEach(h => {
+    holidayMap[h.date] = h.quota_hours;
+    holidayTypeMap[h.date] = h.quota_hours === 0 ? 'holiday' : h.quota_hours < 9 ? 'eve' : null;
+    holidayNameMap[h.date] = h.name;
+  });
+
+  function getQuota(d) {
+    const wd = new Date(d).getDay();
+    if (wd === 5 || wd === 6) return 0;
+    if (holidayMap[d] !== undefined) return holidayMap[d];
+    return 9;
+  }
+
+  function colClass(d) {
+    const wd = new Date(d).getDay();
+    if (wd === 5 || wd === 6) return 'col-weekend';
+    const st = statuses[d];
+    if (st === 'sick') return 'col-sick';
+    if (st === 'vacation') return 'col-vacation';
+    const t = holidayTypeMap[d];
+    if (t === 'holiday') return 'col-holiday';
+    if (t === 'eve') return 'col-eve';
+    return '';
+  }
+
+  function colTooltip(d) {
+    const wd = new Date(d).getDay();
+    if (wd === 5) return 'שישי';
+    if (wd === 6) return 'שבת';
+    const st = statuses[d];
+    if (st === 'sick') return 'יום מחלה';
+    if (st === 'vacation') return 'יום חופש';
+    if (holidayNameMap[d]) {
+      const t = holidayTypeMap[d];
+      return t === 'eve' ? `ערב חג: ${holidayNameMap[d]}` : holidayNameMap[d];
+    }
+    return '';
+  }
+
+  const byProject = {};
+  reports.forEach(r => {
+    if (!byProject[r.project]) byProject[r.project] = {};
+    byProject[r.project][r.date] = (byProject[r.project][r.date] || 0) + r.duration_hours;
+  });
+
+  let projectKeys;
+  if (showMode === 'active' || showMode === 'sick' || showMode === 'vacation') {
+    projectKeys = Object.keys(byProject).filter(k => dates.some(d => (byProject[k]||{})[d]));
+  } else {
+    projectKeys = projects.map(p => String(p.id));
+  }
+
+  const DAY_HE = ['א','ב','ג','ד','ה','ו','ש'];
+  const todayISO_ = todayISO();
+  const colCls = d => [colClass(d), d === todayISO_ ? 'col-today' : ''].filter(Boolean).join(' ');
+  let html = `<div class="report-table-wrap"><table class="report-table"><thead><tr>`;
+  html += `<th class="project-col">פרויקט</th><th class="range-total-col">סה"כ</th>`;
+  dates.forEach(d => {
+    const [,mo,dy] = d.split('-'), wd = new Date(d).getDay(), cls = colCls(d);
+    const tip = colTooltip(d);
+    html += `<th class="${cls} rpt-date-hdr" onclick="openDayDetail('${d}')"${tip ? ` title="${tip}"` : ''}>${dy}/${mo}<br><small>${DAY_HE[wd]}'</small></th>`;
+  });
+  html += `</tr></thead><tbody>`;
+
+  const colTotals = {}; dates.forEach(d => { colTotals[d] = 0; });
+  let grandEntries = 0;
+
+  projectKeys.forEach(key => {
+    const name = projectMap[key] || key;
+    const rowData = byProject[key] || {};
+    const rowTotal = dates.reduce((s, d) => s + (rowData[d]||0), 0);
+    if (rowTotal === 0 && (showMode === 'active' || showMode === 'sick' || showMode === 'vacation')) return;
+    grandEntries += rowTotal;
+    html += `<tr><td class="project-col">${name}</td><td class="range-total-col">${formatDuration(rowTotal)}</td>`;
+    dates.forEach(d => {
+      const v = rowData[d]||0, cls = colCls(d);
+      colTotals[d] += v;
+      html += `<td class="${cls}${v ? ' rpt-cell-link' : ''}" ${v ? `onclick="openDayDetail('${d}')"` : ''}>${v ? formatDuration(v) : '-'}</td>`;
+    });
+    html += `</tr>`;
+  });
+
+  // Pre-compute per-day and cumulative values
+  const quotaByDay = {}, cumQuotaByDay = {}, cumActualByDay = {};
+  let runQ = 0, runA = 0;
+  dates.forEach(d => {
+    const q = getQuota(d), a = colTotals[d] || 0;
+    runQ += q; runA += a;
+    quotaByDay[d] = q;
+    cumQuotaByDay[d] = runQ;
+    cumActualByDay[d] = runA;
+  });
+  const totalQuota = runQ, grandActual = runA, totalDiff = grandActual - totalQuota;
+
+  const qr = (label, fn, cls = 'quota-row', total = '') => {
+    let r = `<tr class="${cls}"><td class="project-col">${label}</td><td class="range-total-col">${total}</td>`;
+    dates.forEach(d => { r += `<td class="${colCls(d)}">${fn(d)}</td>`; });
+    return r + `</tr>`;
+  };
+  const sign = v => (v >= 0 ? '+' : '') + formatDuration(v);
+  const diffCls = v => v >= 0 ? 'pos' : 'neg';
+
+  // 1. תקן יומי
+  html += qr('תקן', d => formatDuration(quotaByDay[d]));
+  // 2. תקן מצטבר
+  html += qr('תקן מצטבר', d => formatDuration(cumQuotaByDay[d]), 'quota-row', formatDuration(totalQuota));
+  // 3. בפועל יומי
+  html += qr('בפועל', d => formatDuration(colTotals[d] || 0));
+  // 4. בפועל מצטבר
+  html += qr('בפועל מצטבר', d => formatDuration(cumActualByDay[d]), 'quota-row', formatDuration(grandActual));
+  // 5. יתרה יומית
+  html += `<tr class="diff-row"><td class="project-col">יתרה</td><td class="range-total-col"></td>`;
+  dates.forEach(d => { const v = (colTotals[d]||0) - quotaByDay[d]; html += `<td class="${colCls(d)} ${diffCls(v)}">${sign(v)}</td>`; });
+  html += `</tr>`;
+  // 6. יתרה מצטבר
+  html += `<tr class="diff-row"><td class="project-col">יתרה מצטבר</td><td class="range-total-col ${diffCls(totalDiff)}">${sign(totalDiff)}</td>`;
+  dates.forEach(d => { const v = cumActualByDay[d] - cumQuotaByDay[d]; html += `<td class="${colCls(d)} ${diffCls(v)}">${sign(v)}</td>`; });
+  html += `</tr></tbody></table></div>`;
+  document.getElementById('reports-output').innerHTML = html;
+}
+
+// ── Day Detail (from Reports screen) ──────────────────────────────────────
+let _dayDetailDate = null;
+
+async function openDayDetail(dateStr) {
+  _dayDetailDate = dateStr;
+  document.getElementById('day-detail-title').textContent = formatDate(dateStr);
+  document.getElementById('day-detail-body').innerHTML = '<div class="empty">טוען...</div>';
+  openModal('modal-day-detail');
+  await refreshDayDetail();
+}
+
+async function refreshDayDetail() {
+  const dateStr = _dayDetailDate;
+  const reports = await fetch(`/api/reports?date=${dateStr}`).then(r => r.json());
+  dailyReports = reports;
+  const body = document.getElementById('day-detail-body');
+  if (!reports.length) {
+    body.innerHTML = '<div class="empty">אין דיווחים ביום זה</div>';
+    return;
+  }
+  const total = reports.reduce((s, r) => s + (r.duration_hours || 0), 0);
+  body.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:13px">
+    ${reports.map(r => {
+      const name = allProjects.find(p => p.id == r.project)?.name || r.project || '<em style="color:#94a3b8">ללא פרויקט</em>';
+      const endLabel = r.end_time
+        ? (r.end_date && r.end_date !== r.date ? `${r.end_time} <small style="color:var(--primary)">${formatDate(r.end_date)}</small>` : r.end_time)
+        : '—';
+      return `<tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:8px 6px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${name}</td>
+        <td style="padding:8px 6px;white-space:nowrap">${r.start_time||'—'} → ${endLabel}</td>
+        <td style="padding:8px 6px;font-weight:600;white-space:nowrap">${formatDuration(r.duration_hours)}</td>
+        <td style="padding:8px 6px;white-space:nowrap">
+          <div class="td-actions">
+            <button class="btn-icon" onclick="openEditFromDetail(${r.id})">✏️</button>
+            <button class="btn-icon" onclick="deleteFromDetail(${r.id})">🗑️</button>
+          </div>
+        </td>
+      </tr>`;
+    }).join('')}
+    <tr><td colspan="4" style="padding:8px 6px;font-weight:700;border-top:2px solid var(--border)">סה"כ: ${formatDuration(total)}</td></tr>
+  </table>`;
+}
+
+async function openEditFromDetail(id) {
+  closeModal('modal-day-detail');
+  await openEditReport(id);
+}
+
+async function deleteFromDetail(id) {
+  if (!confirm('למחוק דיווח זה?')) return;
+  await fetch(`/api/reports/${id}`, {method:'DELETE'});
+  await refreshDayDetail();
+  loadReports();
+}
+
+// ── Projects Screen ────────────────────────────────────────────────────────
+async function loadProjectsScreen() {
+  allProjects = await fetch('/api/projects').then(r => r.json());
+  renderProjectsList();
+}
+
+function renderProjectsList() {
+  const el = document.getElementById('projects-list');
+  if (!allProjects.length) { el.innerHTML = '<div class="empty">אין פרויקטים</div>'; return; }
+  const sorted = [...allProjects].sort((a,b) => (b.favorite-a.favorite)||a.name.localeCompare(b.name,'he'));
+  el.innerHTML = sorted.map(p => `
+    <div class="project-item ${p.favorite?'fav':''}">
+      <span class="star ${p.favorite?'starred':''}" onclick="toggleFav(${p.id})">★</span>
+      <span class="project-name">${p.name}</span>
+      ${!p.active?'<span class="inactive-badge">לא פעיל</span>':''}
+      <button class="btn btn-secondary btn-sm" onclick="openProjectModal(${p.id})">ערוך</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteProject(${p.id})">מחק</button>
+    </div>`).join('');
+}
+
+async function toggleFav(id) {
+  const p = allProjects.find(x => x.id===id); if (!p) return;
+  await fetch(`/api/projects/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name:p.name, favorite:!p.favorite, active:p.active}) });
+  await loadProjectsScreen();
+}
+
+function openProjectModal(id) {
+  if (id) {
+    const p = allProjects.find(x => x.id===id);
+    document.getElementById('modal-project-title').textContent = 'עריכת פרויקט';
+    document.getElementById('mp-id').value = id;
+    document.getElementById('mp-name').value = p.name;
+    document.getElementById('mp-active').checked = p.active;
+  } else {
+    document.getElementById('modal-project-title').textContent = 'הוסף פרויקט';
+    document.getElementById('mp-id').value = ''; document.getElementById('mp-name').value = ''; document.getElementById('mp-active').checked = true;
+  }
+  openModal('modal-project');
+}
+
+async function saveProject() {
+  const id = document.getElementById('mp-id').value;
+  const name = document.getElementById('mp-name').value.trim(); if (!name) return;
+  const active = document.getElementById('mp-active').checked;
+  if (id) {
+    const p = allProjects.find(x => x.id==id);
+    await fetch(`/api/projects/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name, favorite:p?.favorite||false, active}) });
+  } else {
+    await fetch('/api/projects', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name}) });
+  }
+  closeModal('modal-project'); await loadProjectsScreen();
+}
+
+async function deleteProject(id) {
+  if (!confirm('למחוק פרויקט זה?')) return;
+  await fetch(`/api/projects/${id}`, {method:'DELETE'}); await loadProjectsScreen();
+}
+
+// ── Holidays Screen ────────────────────────────────────────────────────────
+async function loadHolidays() {
+  const holidays = await fetch('/api/holidays').then(r => r.json());
+  const tbody = document.getElementById('holidays-tbody');
+  if (!holidays.length) { tbody.innerHTML='<tr><td colspan="4" class="empty">אין חגים</td></tr>'; return; }
+  const sorted = [...holidays].sort((a,b)=>a.date.localeCompare(b.date));
+  tbody.innerHTML = sorted.map(h => `<tr>
+    <td>${formatDate(h.date)}</td><td>${h.name}</td><td>${formatDuration(h.quota_hours)}</td>
+    <td><div class="td-actions">
+      <button class="btn-icon" onclick="openHolidayModal(${h.id})">✏️</button>
+      <button class="btn-icon" onclick="deleteHoliday(${h.id})">🗑️</button>
+    </div></td>
+  </tr>`).join('');
+}
+
+function openHolidayModal(id) {
+  if (id) {
+    document.getElementById('modal-holiday-title').textContent = 'עריכת חג';
+    document.getElementById('mh-id').value = id;
+    fetch('/api/holidays').then(r=>r.json()).then(hs => {
+      const h = hs.find(x=>x.id===id); if (!h) return;
+      document.getElementById('mh-date').value = h.date;
+      document.getElementById('mh-name').value = h.name;
+      document.getElementById('mh-quota').value = h.quota_hours;
+    });
+  } else {
+    document.getElementById('modal-holiday-title').textContent = 'הוסף חג';
+    document.getElementById('mh-id').value = '';
+    document.getElementById('mh-date').value = ''; document.getElementById('mh-name').value = ''; document.getElementById('mh-quota').value = '0';
+  }
+  openModal('modal-holiday');
+}
+
+async function saveHoliday() {
+  const id = document.getElementById('mh-id').value;
+  const dateStr = document.getElementById('mh-date').value;
+  const name = document.getElementById('mh-name').value.trim();
+  const quota = parseFloat(document.getElementById('mh-quota').value);
+  if (!dateStr || !name) return;
+  if (id) {
+    await fetch(`/api/holidays/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({date:dateStr, name, quota_hours:quota}) });
+  } else {
+    await fetch('/api/holidays', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({date:dateStr, name, quota_hours:quota}) });
+  }
+  closeModal('modal-holiday'); await loadHolidays();
+}
+
+async function deleteHoliday(id) {
+  if (!confirm('למחוק חג זה?')) return;
+  await fetch(`/api/holidays/${id}`, {method:'DELETE'}); await loadHolidays();
+}
+
+// ── Modal helpers ──────────────────────────────────────────────────────────
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(o => {
+  o.addEventListener('click', e => { if (e.target===o) closeModal(o.id); });
+});
+
+// ── Init ───────────────────────────────────────────────────────────────────
+loadMain();
+initReportDates();
+</script>
+</body>
+</html>
