@@ -18,5 +18,6 @@ if errorlevel 1 goto waitloop
 
 start "" "http://localhost:5001"
 
-echo Server is running. Close this window to stop.
+echo Server is running.
+echo To expose it via Cloudflare Tunnel, run cloudflared-tunnel.bat in a separate window.
 pause >nul

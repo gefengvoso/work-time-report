@@ -176,6 +176,8 @@
   <div class="nav-tab" onclick="showScreen('reports', this)">דוחות</div>
   <div class="nav-tab" onclick="showScreen('projects', this)">פרויקטים</div>
   <div class="nav-tab" onclick="showScreen('holidays', this)">חגים</div>
+  <div style="flex:1"></div>
+  <a href="/logout" style="padding:14px 18px;color:var(--text-muted);font-weight:500;text-decoration:none;font-size:14px;white-space:nowrap;">התנתק</a>
 </nav>
 
 <!-- ═══════════════ MAIN SCREEN ═══════════════ -->
@@ -1261,6 +1263,14 @@ function closeModal(id) { document.getElementById(id).classList.remove('open'); 
 document.querySelectorAll('.modal-overlay').forEach(o => {
   o.addEventListener('click', e => { if (e.target===o) closeModal(o.id); });
 });
+
+// ── Auth interceptor — redirect to /login on 401 ──────────────────────────
+const _fetch = window.fetch;
+window.fetch = async (...args) => {
+  const res = await _fetch(...args);
+  if (res.status === 401) { window.location.href = '/login'; }
+  return res;
+};
 
 // ── Init ───────────────────────────────────────────────────────────────────
 loadMain();

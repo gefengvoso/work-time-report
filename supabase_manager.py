@@ -21,6 +21,14 @@ def init_excel():
     pass
 
 
+def sign_in(email, password):
+    try:
+        res = _get_client().auth.sign_in_with_password({'email': email, 'password': password})
+        return {'access_token': res.session.access_token, 'email': res.user.email}
+    except Exception as e:
+        return {'error': str(e)}
+
+
 def _calc_duration(start_date, start_time, end_date, end_time):
     if not start_time or not end_time:
         return 0.0
