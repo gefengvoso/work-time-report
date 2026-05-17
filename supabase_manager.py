@@ -50,6 +50,8 @@ def _row_to_report(row):
         'end_time': row['end_time'] or '',
         'duration_hours': float(row['duration_hours'] or 0),
         'end_date': row['end_date'] or '',
+        'mission_code': row.get('mission_code') or '',
+        'mission_description': row.get('mission_description') or '',
     }
 
 
@@ -66,7 +68,7 @@ def get_reports_range(start_str, end_str):
     return [_row_to_report(r) for r in res.data]
 
 
-def add_report(date_str, project, start_time, end_time, end_date=None):
+def add_report(date_str, project, start_time, end_time, end_date=None, mission_code='', mission_description=''):
     duration = _calc_duration(date_str, start_time, end_date, end_time)
     res = _get_client().table('time_reports').insert({
         'date': date_str,
@@ -75,11 +77,13 @@ def add_report(date_str, project, start_time, end_time, end_date=None):
         'end_time': end_time or '',
         'duration_hours': duration,
         'end_date': end_date or None,
+        'mission_code': mission_code or '',
+        'mission_description': mission_description or '',
     }).execute()
     return _row_to_report(res.data[0])
 
 
-def update_report(report_id, date_str, project, start_time, end_time, end_date=None):
+def update_report(report_id, date_str, project, start_time, end_time, end_date=None, mission_code='', mission_description=''):
     duration = _calc_duration(date_str, start_time, end_date, end_time)
     res = _get_client().table('time_reports').update({
         'date': date_str,
@@ -88,6 +92,8 @@ def update_report(report_id, date_str, project, start_time, end_time, end_date=N
         'end_time': end_time or '',
         'duration_hours': duration,
         'end_date': end_date or None,
+        'mission_code': mission_code or '',
+        'mission_description': mission_description or '',
     }).eq('id', report_id).execute()
     if not res.data:
         return None

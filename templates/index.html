@@ -238,6 +238,18 @@
       </div>
     </div>
 
+    <!-- Mission fields -->
+    <div style="display:flex;gap:10px;margin-bottom:14px;">
+      <div class="form-group" style="flex:0 0 130px;margin-bottom:0">
+        <label>קוד משימה</label>
+        <input type="text" id="f-mission-code" placeholder="קוד משימה">
+      </div>
+      <div class="form-group" style="flex:1;margin-bottom:0">
+        <label>תיאור משימה</label>
+        <input type="text" id="f-mission-desc" placeholder="תיאור משימה">
+      </div>
+    </div>
+
     <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
       <div class="status-row">
         <span style="font-size:12px;font-weight:600;color:var(--text-muted);">סוג יום:</span>
@@ -258,7 +270,7 @@
     <div class="table-wrap">
       <table>
         <thead>
-          <tr><th>פרויקט</th><th>התחלה</th><th>סיום</th><th>משך</th><th></th></tr>
+          <tr><th>פרויקט</th><th>קוד משימה</th><th>התחלה</th><th>סיום</th><th>משך</th><th></th></tr>
         </thead>
         <tbody id="daily-tbody">
           <tr><td colspan="5" class="empty">אין דיווחים להיום</td></tr>
@@ -387,6 +399,10 @@
         <div class="tile-value" id="m-tv-end">—</div>
         <input type="time" id="m-end" style="display:none">
       </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:14px;">
+      <div class="form-group" style="flex:0 0 130px;margin-bottom:0"><label>קוד משימה</label><input type="text" id="m-mission-code" placeholder="קוד משימה"></div>
+      <div class="form-group" style="flex:1;margin-bottom:0"><label>תיאור משימה</label><input type="text" id="m-mission-desc" placeholder="תיאור משימה"></div>
     </div>
     <div id="modal-error" style="color:var(--red);font-size:13px;margin-top:10px;display:none;"></div>
     <div class="modal-actions">
@@ -589,8 +605,9 @@ async function loadDailyTable(dateStr) {
     const name = allProjects.find(p => p.id == r.project)?.name || r.project || '<em style="color:#94a3b8">ללא פרויקט</em>';
     const dur = r.start_time && r.end_time ? `<strong>${formatDuration(r.duration_hours)}</strong>` : '—';
     const endLabel = r.end_time ? (r.end_date && r.end_date !== r.date ? `${r.end_time} <small style="color:var(--primary)">${formatDate(r.end_date)}</small>` : r.end_time) : '—';
+    const missionCell = r.mission_code ? `<span title="${r.mission_description||''}">${r.mission_code}</span>` : '<em style="color:#94a3b8">—</em>';
     return `<tr>
-      <td>${name}</td><td>${r.start_time||'—'}</td><td>${endLabel}</td><td>${dur}</td>
+      <td>${name}</td><td>${missionCell}</td><td>${r.start_time||'—'}</td><td>${endLabel}</td><td>${dur}</td>
       <td><div class="td-actions">
         <button class="btn-icon" onclick="openEditReport(${r.id})">✏️</button>
         <button class="btn-icon" onclick="deleteReport(${r.id})">🗑️</button>
@@ -635,7 +652,9 @@ async function saveReport() {
   errEl.style.display = 'none';
 
   const endDate = endDateStr !== dateStr ? endDateStr : null;
-  await fetch('/api/reports', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({date:dateStr, project, start_time:start, end_time:end, end_date:endDate}) });
+  const missionCode = document.getElementById('f-mission-code').value.trim();
+  const missionDesc = document.getElementById('f-mission-desc').value.trim();
+  await fetch('/api/reports', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({date:dateStr, project, start_time:start, end_time:end, end_date:endDate, mission_code:missionCode, mission_description:missionDesc}) });
 
   // next start = previous end time, advance end-date to end-date
   const nextStart = end || roundTime(new Date());
@@ -649,6 +668,8 @@ async function saveReport() {
   document.getElementById('f-end').value = '';
   setTileTime('f-end', 'tv-end');
   document.getElementById('f-project').value = '';
+  document.getElementById('f-mission-code').value = '';
+  document.getElementById('f-mission-desc').value = '';
   await loadDailyTable(document.getElementById('f-date').value);
   await loadBalance();
 }
@@ -661,6 +682,8 @@ function resetForm() {
   document.getElementById('f-end-date').value = today; setTileEndDate(today);
   document.getElementById('f-start').value = rounded; setTileTime('f-start', 'tv-start');
   document.getElementById('f-end').value = ''; setTileTime('f-end', 'tv-end');
+  document.getElementById('f-mission-code').value = '';
+  document.getElementById('f-mission-desc').value = '';
   document.getElementById('form-error').style.display = 'none';
 }
 
@@ -712,6 +735,8 @@ async function openEditReport(id) {
 
   populateProjectSelect('m-project');
   document.getElementById('m-project').value = r.project;
+  document.getElementById('m-mission-code').value = r.mission_code || '';
+  document.getElementById('m-mission-desc').value = r.mission_description || '';
   document.getElementById('modal-error').style.display = 'none';
   openModal('modal-report');
 }
@@ -730,7 +755,9 @@ async function saveEditReport() {
     }
   }
   const endDate = endDateStr !== dateStr ? endDateStr : null;
-  await fetch(`/api/reports/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({date:dateStr, project, start_time:start, end_time:end, end_date:endDate}) });
+  const missionCode = document.getElementById('m-mission-code').value.trim();
+  const missionDesc = document.getElementById('m-mission-desc').value.trim();
+  await fetch(`/api/reports/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({date:dateStr, project, start_time:start, end_time:end, end_date:endDate, mission_code:missionCode, mission_description:missionDesc}) });
   closeModal('modal-report');
   if (document.getElementById('screen-reports').classList.contains('active')) {
     loadReports();
