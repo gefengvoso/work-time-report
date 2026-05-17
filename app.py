@@ -75,6 +75,8 @@ def add_report():
             data.get('start_time', ''),
             data.get('end_time', ''),
             data.get('end_date') or None,
+            data.get('mission_code', ''),
+            data.get('mission_description', ''),
         )
         return jsonify(report), 201
     except Exception as e:
@@ -92,6 +94,8 @@ def update_report(report_id):
         data.get('start_time', ''),
         data.get('end_time', ''),
         data.get('end_date') or None,
+        data.get('mission_code', ''),
+        data.get('mission_description', ''),
     )
     if result is None:
         return jsonify({'error': 'not found'}), 404
